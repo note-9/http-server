@@ -12,6 +12,20 @@
 #include <cstring> // for memset() to clear memory
 
 int main(){
+    const int PORT = 8080;
+
+    int server_fd; // server socket file descriptor
     
+    struct sockaddr_in address;
+    
+    int addrlen = sizeof(address);
+
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    
+
     return 0;
 }
