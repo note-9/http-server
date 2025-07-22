@@ -55,6 +55,30 @@ int main(){
         }
         std::cout << "New connection accepted!" << std::endl;
 
+        char buffer[1024];
+        ssize_t bytes_read = read(new_socket, buffer, sizeof(buffer) - 1);
+        if (bytes_read == -1) {
+            perror("read failed");
+            close(new_socket);
+            continue;
+        }
+        buffer[bytes_read] = '\0';
+        std::cout << buffer << std::endl;
+
+        std::string html_content = "<h1>Hello from my C++ HTTP Server!</h1>";
+        std::string http_response;
+        http_response += "HTTP/1.1 200 OK\r\n";
+        http_response += "Content-Type: text/html\r\n";
+        http_response += "Content-Length: " + std::to_string(html_content.length()) + "\r\n\r\n";
+        http_response += html_content;
+
+        ssize_t bytes_sent = write(new_socket, http_response.c_str(), http_response.length()); 
+        if (bytes_sent == -1) {
+            perror("write failed");
+        }
+        close(new_socket);
+        std::cout << "Response sent and connection closed." << std::endl;
+
     }
 
     return 0;
