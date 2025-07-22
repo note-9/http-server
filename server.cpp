@@ -27,16 +27,16 @@ int main(){
 
     int opt = 1; // option value
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("swtsockopt failed");
+        perror("setsockopt failed");
         exit(EXIT_FAILURE);
     }
 
-    memset(&address, 0, sizeof(address));
+    memset(&address, 0, addrlen);
     address.sin_family = AF_INET; // for ipv4
     address.sin_addr.s_addr = INADDR_ANY; // to listen to all available network interfaces
     address.sin_port = htons(PORT); // for network byte order (host to network short)
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address))) {
+    if (bind(server_fd, (struct sockaddr *)&address, addrlen)) {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
@@ -46,7 +46,16 @@ int main(){
         exit(EXIT_FAILURE);
     }
     std::cout << "Server listening on port " << PORT << std::endl;
-    
+
+    while (true) {
+        int new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
+        if(new_socket == -1) {
+            perror("accept failed");
+            continue;
+        }
+        std::cout << "New connection accepted!" << std::endl;
+
+    }
 
     return 0;
 }
