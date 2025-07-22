@@ -1,85 +1,65 @@
 #include <iostream> // For ip/op operations
-#include <string> // for using std::string
-#include <stdexcept> // for throwing std exceptions
-#include <sstream> // for string stream operations
-#include <map> // for storing key value pairs
+#include <string>
+// #include <thread> // to handle multiple clients
+#include <stdexcept>
+#include <cstdlib>
 
-// C - style headers for low level socket programming
-#include <sys/socket.h> 
-#include <netinet/in.h> // for sockaddr_in structure and internet addresses
-#include <unistd.h> // for close function
-#include <thread> // to handle multiple clients
-#include <cstring> // for memset() to clear memory
+#include "Socket.hpp"
 
 int main(){
     const int PORT = 8080;
 
-    int server_fd; // server socket file descriptor
-    
-    struct sockaddr_in address;
-    
-    int addrlen = sizeof(address);
+    try {
+        Socket server_socket;
 
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
-    }
+        server_socket.set_reuse_address();
+        
+        server_socket.bind(PORT);
+        
+        server_socket.listen(10);
+        std::cout << "Server listening on port " << PORT << std::endl;
 
-    int opt = 1; // option value
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("setsockopt failed");
-        exit(EXIT_FAILURE);
-    }
+        while (true) {
+            try {
+                Socket client_socket = server_socket.accept();
+                std::cout << "New connection accepted!" << std::endl;
 
-    memset(&address, 0, addrlen);
-    address.sin_family = AF_INET; // for ipv4
-    address.sin_addr.s_addr = INADDR_ANY; // to listen to all available network interfaces
-    address.sin_port = htons(PORT); // for network byte order (host to network short)
+                char buffer[1024] = {0};
+                ssize_t bytes_read = client_socket.recv(buffer, sizeof(buffer) - 1);
 
-    if (bind(server_fd, (struct sockaddr *)&address, addrlen)) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
-    }
-    
-    if (listen(server_fd, 10)) {
-        perror("listen failed");
-        exit(EXIT_FAILURE);
-    }
-    std::cout << "Server listening on port " << PORT << std::endl;
+                if (bytes_read == 0) {
+                    // Client disconnected gracefully before sending data
+                    std::cout << "Client disconnected gracefully without sending data." << std::endl;
+                    continue; // Move to the next loop iteration to accept new clients
+                } else if (bytes_read < 0) {
+                    std::cerr << "Error reading from client socket." << std::endl;
+                    continue; 
+                }
 
-    while (true) {
-        int new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-        if(new_socket == -1) {
-            perror("accept failed");
-            continue;
+                buffer[bytes_read] = '\0';
+                std::cout << "Recieved request:\n" << buffer << std::endl;
+
+                std::string html_content = "<h1>Hello from my C++ HTTP Server!</h1>";
+                std::string http_response;
+                http_response += "HTTP/1.1 200 OK\r\n";
+                http_response += "Content-Type: text/html\r\n";
+                http_response += "Content-Length: " + std::to_string(html_content.length()) + "\r\n\r\n";
+                http_response += html_content;
+                
+                client_socket.send(http_response);
+                
+                std::cout << "Response sent and connection closed." << std::endl;
+            } catch(const std::runtime_error& e) {
+                std::cerr << "Client Handling Error: " << e.what() << std::endl;
+            }
         }
-        std::cout << "New connection accepted!" << std::endl;
+            
 
-        char buffer[1024];
-        ssize_t bytes_read = read(new_socket, buffer, sizeof(buffer) - 1);
-        if (bytes_read == -1) {
-            perror("read failed");
-            close(new_socket);
-            continue;
-        }
-        buffer[bytes_read] = '\0';
-        std::cout << buffer << std::endl;
-
-        std::string html_content = "<h1>Hello from my C++ HTTP Server!</h1>";
-        std::string http_response;
-        http_response += "HTTP/1.1 200 OK\r\n";
-        http_response += "Content-Type: text/html\r\n";
-        http_response += "Content-Length: " + std::to_string(html_content.length()) + "\r\n\r\n";
-        http_response += html_content;
-
-        ssize_t bytes_sent = write(new_socket, http_response.c_str(), http_response.length()); 
-        if (bytes_sent == -1) {
-            perror("write failed");
-        }
-        close(new_socket);
-        std::cout << "Response sent and connection closed." << std::endl;
-
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Server Critical Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     return 0;
+
 }
